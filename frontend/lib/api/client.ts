@@ -1,29 +1,110 @@
 /*
  * ============================================================================
- * lib/api/client.ts — API CLIENT (Axios)
- * Component: Person C + Person E (Frontend)
- *
- * Single place for all Go API calls + auth header handling.
- *
- * WHAT NEEDS TO BE DONE:
- * - Create an Axios instance with baseURL = NEXT_PUBLIC_API_URL
- *   (the deployed Go API on Railway).
- * - Request interceptor: attach JWT/Bearer token from localStorage.
- * - Response interceptor: unified error handling (Feature 19.7),
- *   e.g., 401 → redirect to /auth/login, network error → mark offline.
- *
- * Functions needed by pages (map to endpoints in docs/to-do-list.md):
- * - getFarms() / createFarm(data) / updateFarm(id,data) / deleteFarm(id)
- * - getWeather(farmId) / getSoilMoisture(farmId)
- * - getRecommendations(farmId)
- * - generateRecommendation(farmId)          → Feature 4.1
- * - sendSMS(farmId) / sendAlert(farmId)     → Feature 13.1 / 3.11
- * - getAlertHistory()                       → Feature 7.1 / 3.21
- * - getSmsCredits()                         → Feature 13.15
- * - updateProfile(...) / changePassword(...) → Feature 8.1–8.2
- * - updateSubscription(...)                  → Feature 17.x
- *
- * Feature references: 19.7 (error handling), 19.9 (rate limiting/timeouts),
- * 19.10 (JWT), 19.12 (logging/observability).
+ * lib/api/client.ts — AMATSI API CLIENT
  * ============================================================================
  */
+
+import axios from "axios";
+
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// ─── Axios instance ──────────────────────────────────────────────────────────
+
+export const api = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10_000,
+  headers: { "Content-Type": "application/json" },
+});
+
+// ─── Request interceptor: attach JWT Bearer token ────────────────────────────
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("amatsi_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// ─── Response interceptor: unified error handling ────────────────────────────
+
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid → clear storage and redirect to login
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("amatsi_token");
+        window.location.href = "/auth/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+
+export const saveToken = (token: string) =>
+  localStorage.setItem("amatsi_token", token);
+
+export const clearToken = () =>
+  localStorage.removeItem("amatsi_token");
+
+export const getToken = () =>
+  typeof window !== "undefined"
+    ? localStorage.getItem("amatsi_token")
+    : null;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export const authApi = {
+  signup: (data: { full_name: string; phone_number: string; password: string }) =>
+    api.post("/api/auth/signup", data),
+
+  login: async (data: { phone_number: string; password: string }) => {
+    const res = await api.post<{ token: string }>("/api/auth/login", data);
+    saveToken(res.data.token);
+    return res;
+  },
+
+  logout: async () => {
+    await api.post("/api/auth/logout");
+    clearToken();
+  },
+};
+
+// ─── Farms ────────────────────────────────────────────────────────────────────
+
+export const farmsApi = {
+  list: () => api.get("/api/farms"),
+  get: (id: string) => api.get(`/api/farms/${id}`),
+  create: (data: object) => api.post("/api/farms", data),
+  update: (id: string, data: object) => api.put(`/api/farms/${id}`, data),
+  delete: (id: string) => api.delete(`/api/farms/${id}`),
+};
+
+// ─── Weather & Soil ──────────────────────────────────────────────────────────
+
+export const weatherApi = {
+  getWeather: (farmId: string) => api.get(`/api/weather/${farmId}`),
+  getSoilMoisture: (farmId: string) => api.get(`/api/soil/${farmId}`),
+};
+
+// ─── Recommendations ─────────────────────────────────────────────────────────
+
+export const recommendationsApi = {
+  list: (farmId: string) => api.get(`/api/recommendations/${farmId}`),
+  generate: (farmId: string) =>
+    api.post("/api/recommendations/generate", { farm_id: farmId }),
+};
+
+// ─── Alerts / SMS ─────────────────────────────────────────────────────────────
+
+export const alertsApi = {
+  send: (farmId: string) =>
+    api.post("/api/alerts/send", { farm_id: farmId }),
+  history: () => api.get("/api/alerts/history"),
+};
