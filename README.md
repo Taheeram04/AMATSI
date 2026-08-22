@@ -1,22 +1,20 @@
-# AMATSI
-# Local full-stack development
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-Run the frontend, Go API, AI service, PostgreSQL, Redis, and MQTT broker with
-Docker Compose:
+# Run and deploy your AI Studio app
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
+This contains everything you need to run your app locally.
 
-The frontend is available at http://localhost:3000, the API health check at
-http://localhost:8080/health, and the AI health check at
-http://localhost:8000/health. The Compose setup uses a seeded local PostgreSQL
-database and deterministic mock KijaniBox data; it does not send SMS or use
-production API credentials.
+View your app in AI Studio: https://ai.studio/apps/76a64659-335a-47c9-b9ea-726814b79699
 
-To reset the local database and seed data, run:
+## Run Locally
 
-```bash
-docker compose down -v
-```
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

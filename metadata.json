@@ -1,0 +1,6 @@
+{
+  "name": "AMATSI - Smart Irrigation MVP",
+  "description": "Smart IoT irrigation scheduling for smallholder farmers in the Lake Victoria basin, eliminating water waste and saving fuel with direct SMS alerts in English, Kiswahili, and Luo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
