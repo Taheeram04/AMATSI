@@ -54,6 +54,10 @@ services:
         value: AMATSI
       - key: AFRICA_TALKING_CALLBACK_URL
         value: ""
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: RATE_LIMIT_STRICT_PER_MINUTE
+        value: "10"
       - key: REDIS_URL
         sync: false
       - key: AI_SERVICE_URL

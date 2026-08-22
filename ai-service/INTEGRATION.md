@@ -21,16 +21,15 @@ Example request:
 ```json
 {
   "soil_moisture": 20,
-  "rain_probability": 10,
-  "tank_level": 1000,
+  "rainfall_probability": 10,
+  "tank_capacity_liters": 1000,
   "crop_type": "beans",
-  "field_size": 10,
-  "temperature": 25,
-  "humidity": 60
+  "field_size_square_m": 10000,
+  "temperature": 25
 }
 ```
 
-Units are percent for moisture, rain probability, and humidity; liters for tank level; square meters for field size; degrees Celsius for temperature. `crop_type` is case-insensitive. `rainfall_expected`, `lat`, and `lon` are accepted for compatibility, but live weather and KijaniBox lookups are not implemented by this service.
+Units are percent for moisture and rain probability; liters for tank capacity; square meters for field size; degrees Celsius for temperature. `crop_type` is case-insensitive. Optional `latitude`/`longitude` enable KijaniBox enrichment when configured.
 
 Example response:
 
@@ -38,10 +37,10 @@ Example response:
 {
   "action": "IRRIGATE",
   "reason": "Soil moisture is low at 20%; irrigate now.",
-  "water_volume": 200,
-  "water_saved": 0,
+  "water_saved_estimate": 0,
+  "water_volume_liters": 20000,
   "confidence": "High",
-  "timestamp": "2026-08-21T12:00:00Z"
+  "generated_at": "2026-08-21T12:00:00Z"
 }
 ```
 
@@ -53,7 +52,7 @@ The Go backend should be the only application service that calls this API in pro
 
 1. Authenticate the farmer and authorize access to the selected farm.
 2. Load farm details and the latest environmental readings.
-3. Convert the farm area from hectares to square meters before sending `field_size`.
+3. Convert the farm area from hectares to square meters before sending `field_size_square_m`.
 4. `POST` the request JSON to the configured AI service URL, with a short client timeout.
 5. Validate the response, persist the recommendation, and optionally queue an SMS.
 6. Return the persisted recommendation to the frontend through the backend API.
@@ -76,10 +75,10 @@ The frontend maps the response as follows:
 
 - `action`: primary recommendation badge (`WAIT`, `IRRIGATE`, `MONITOR`, or `CONSERVE`)
 - `reason`: human-readable explanation
-- `water_volume`: liters to apply when action is `IRRIGATE`
-- `water_saved`: estimated liters avoided by following the recommendation
+- `water_volume_liters`: liters to apply when action is `IRRIGATE`
+- `water_saved_estimate`: estimated liters avoided by following the recommendation
 - `confidence`: completeness indicator (`High`, `Medium`, or `Low`)
-- `timestamp`: generation time in UTC
+- `generated_at`: generation time in UTC
 
 The UI should show a loading state while the backend is generating a recommendation, an error state for failed requests, and the last cached recommendation when offline. It should not recalculate the action in browser code.
 
@@ -87,10 +86,10 @@ The UI should show a loading state while the backend is generating a recommendat
 
 Rules are deterministic and evaluated in this order. The first matching rule wins:
 
-1. `rain_probability > 60` -> `WAIT`
+1. `rainfall_probability > 60` -> `WAIT`
 2. `soil_moisture < 30` -> `IRRIGATE`
 3. `soil_moisture <= 60` -> `MONITOR`
-4. `tank_level < 500` -> `CONSERVE`
+4. `tank_capacity_liters < 500` -> `CONSERVE`
 5. `soil_moisture > 80` -> `MONITOR` with an over-saturation warning
 6. Otherwise -> `MONITOR`
 
@@ -107,14 +106,14 @@ Water requirements are weekly estimates per square meter:
 - rice: `40 L/m2`
 - unknown crops: `25 L/m2`
 
-For `WAIT`, `water_saved` is estimated as `water_needed * rain_probability / 100`. It is an estimate, not a measured water saving.
+For `WAIT`, `water_saved_estimate` is an estimate derived from soil and rainfall inputs, not a measured water saving.
 
 ## Rule Engine Limitations
 
 - This is a transparent threshold engine, not a trained or predictive ML model.
 - It does not fetch weather, soil, satellite, or sensor data. Values must be supplied by the caller.
 - It does not account for crop growth stage, root depth, evapotranspiration, soil texture, slope, irrigation efficiency, field geometry, or local water restrictions.
-- `field_size` must already be in square meters; no hectare or acre conversion occurs inside the API.
+- `field_size_square_m` must already be in square meters; no hectare or acre conversion occurs inside the API.
 - `rainfall_expected` is accepted for contract compatibility but currently does not alter `rain_probability`.
 - Missing numeric fields use zero defaults for backward-compatible partial requests. Such requests produce `Low` or `Medium` confidence and should not be treated as equivalent to measured zero readings.
 - The engine does not persist history, send SMS, authenticate callers, rate-limit requests, or coordinate retries.
