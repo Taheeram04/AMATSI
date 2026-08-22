@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-futura: 'Jost', 'Futura', 'Century Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+    --color-cotton-soil-950: #121110;
+    --color-cotton-soil-900: #1A1817;
+    --color-cotton-soil-800: #262322;
+    --color-cotton-soil-700: #383432;
+    --color-cotton-soil-600: #524D4A;
+    --color-cotton-soil-200: #E5E2DE;
+    --color-cotton-soil-100: #F3F1EE;
+    --color-cotton-soil-50: #FAF9F7;
+
+    --color-vegetation-900: #0D3E1A;
+    --color-vegetation-800: #14532D;
+    --color-vegetation-700: #15803D;
+    --color-vegetation-600: #16A34A;
+    --color-vegetation-500: #22C55E;
+    --color-vegetation-100: #DCFCE7;
+    --color-vegetation-50: #F0FDF4;
+  }
+
+  *, *::before, *::after {
+    font-family: var(--font-futura) !important;
+  }
+
+  html, body {
+    font-family: var(--font-futura) !important;
+    background-color: #FAF9F7;
+    color: #1A1817;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea, label, code, pre, table, th, td {
+    font-family: var(--font-futura) !important;
+  }
+}
+
+.font-futura {
+  font-family: var(--font-futura) !important;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF9F7;
+}
+::-webkit-scrollbar-thumb {
+  background: #D8D4CE;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B5AFA6;
+}
