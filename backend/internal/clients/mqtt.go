@@ -31,6 +31,10 @@ func NewMQTTClient(brokerURI, clientID string) (*MQTTClient, error) {
 	return &MQTTClient{client: client}, nil
 }
 
+func (m *MQTTClient) Disconnect() {
+	m.client.Disconnect(250)
+}
+
 func (m *MQTTClient) TriggerIrrigation(deviceID string, durationMinutes float64) error {
 	topic := fmt.Sprintf("amatsi/devices/%s", deviceID)
 	cmd := IoTCommand{

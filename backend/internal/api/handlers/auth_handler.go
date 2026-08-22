@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kijanifarmer/backend/internal/api/middleware"
 	"github.com/kijanifarmer/backend/internal/models"
@@ -66,7 +68,8 @@ func SignupHandler(c *gin.Context) {
 	}
 
 	if err := repo.CreateUser(c.Request.Context(), user); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(err.Error(), "unique") {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			c.JSON(http.StatusConflict, gin.H{"error": "phone number already registered"})
 			return
 		}

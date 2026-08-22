@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+
 	"github.com/hibiken/asynq"
 	"github.com/kijanifarmer/backend/internal/clients"
 	"github.com/kijanifarmer/backend/internal/queue"
@@ -36,7 +38,12 @@ func (p *SMSProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	}
 
 	if payload.AlertID != "" {
-		_ = p.alertRepo.UpdateSMSStatus(ctx, payload.AlertID, status)
+		if err := p.alertRepo.UpdateSMSStatus(ctx, payload.AlertID, status); err != nil {
+			slog.Error("failed to update sms alert status",
+				slog.String("alert_id", payload.AlertID),
+				slog.String("status", status),
+				slog.String("error", err.Error()))
+		}
 	}
 
 	return err

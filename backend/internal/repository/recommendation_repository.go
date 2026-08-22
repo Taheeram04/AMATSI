@@ -81,5 +81,8 @@ func (r *RecommendationRepository) GetRecommendationsByFarm(ctx context.Context,
 		}
 		recs = append(recs, rec)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return recs, nil
 }

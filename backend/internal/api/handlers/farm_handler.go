@@ -26,6 +26,9 @@ func GetFarmsHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if farms == nil {
+		farms = []*models.Farm{}
+	}
 	c.JSON(http.StatusOK, farms)
 }
 
@@ -55,14 +58,14 @@ func CreateFarmHandler(c *gin.Context) {
 	var input struct {
 		Name               string  `json:"name" binding:"required"`
 		DeviceID           *string `json:"device_id"`
-		AreaHectares       float64 `json:"area_hectares" binding:"required"`
+		AreaHectares       float64 `json:"area_hectares" binding:"required,gt=0"`
 		CropType           string  `json:"crop_type" binding:"required"`
 		SoilType           string  `json:"soil_type" binding:"required"`
 		IrrigationMethod   string  `json:"irrigation_method" binding:"required"`
-		TankCapacityLiters float64 `json:"tank_capacity_liters" binding:"required"`
+		TankCapacityLiters float64 `json:"tank_capacity_liters" binding:"required,gt=0"`
 		PlantingDate       string  `json:"planting_date" binding:"required"`
-		Latitude           float64 `json:"latitude" binding:"required"`
-		Longitude          float64 `json:"longitude" binding:"required"`
+		Latitude           float64 `json:"latitude" binding:"required,gte=-90,lte=90"`
+		Longitude          float64 `json:"longitude" binding:"required,gte=-180,lte=180"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -119,6 +122,13 @@ func UpdateFarmHandler(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if (input.AreaHectares != nil && *input.AreaHectares <= 0) ||
+		(input.TankCapacityLiters != nil && *input.TankCapacityLiters <= 0) ||
+		(input.Latitude != nil && (*input.Latitude < -90 || *input.Latitude > 90)) ||
+		(input.Longitude != nil && (*input.Longitude < -180 || *input.Longitude > 180)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid field values: area/tank must be positive, latitude within ±90, longitude within ±180"})
 		return
 	}
 

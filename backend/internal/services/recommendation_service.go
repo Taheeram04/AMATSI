@@ -2,11 +2,19 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+
 	"github.com/kijanifarmer/backend/internal/clients"
 	"github.com/kijanifarmer/backend/internal/models"
 	"github.com/kijanifarmer/backend/internal/repository"
 	"time"
 )
+
+// ErrUpstream marks failures caused by external services (KijaniBox / AI),
+// letting handlers distinguish them from local persistence errors.
+var ErrUpstream = errors.New("recommendation upstream unavailable")
 
 type RecommendationService struct {
 	recRepo     *repository.RecommendationRepository
@@ -49,7 +57,7 @@ func (s *RecommendationService) GenerateRecommendation(ctx context.Context, farm
 
 	weatherData, soilData, err := s.kijani.GetLandForecast(ctx, farm.Latitude, farm.Longitude)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: kijanibox: %v", ErrUpstream, err)
 	}
 
 	weatherRecord := &models.Weather{
@@ -73,7 +81,7 @@ func (s *RecommendationService) GenerateRecommendation(ctx context.Context, farm
 
 	aiRes, err := s.ai.GetRecommendation(ctx, aiReq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: ai: %v", ErrUpstream, err)
 	}
 
 	rec := &models.Recommendation{
@@ -89,14 +97,23 @@ func (s *RecommendationService) GenerateRecommendation(ctx context.Context, farm
 
 	if rec.Action == "IRRIGATE" {
 		user, err := s.userRepo.GetUserByID(ctx, farm.UserID)
-		if err == nil {
+		if err != nil {
+			slog.Error("recommendation side-effect skipped: user lookup failed",
+				slog.String("farm_id", farmID), slog.String("error", err.Error()))
+		} else {
 			if user.IsPremium && farm.DeviceID != nil && *farm.DeviceID != "" && s.mqtt != nil {
 				durationMinutes := 45.0
-				_ = s.mqtt.TriggerIrrigation(*farm.DeviceID, durationMinutes)
+				if err := s.mqtt.TriggerIrrigation(*farm.DeviceID, durationMinutes); err != nil {
+					slog.Error("mqtt irrigation trigger failed",
+						slog.String("farm_id", farmID), slog.String("error", err.Error()))
+				}
 			} else {
 				// Standard user -> Send SMS Alert
 				msg := "AMATSI Advisor: " + rec.Reason + " Action: " + rec.Action
-				_ = s.alertSvc.SendAlert(ctx, farmID, user.PhoneNumber, msg)
+				if err := s.alertSvc.SendAlert(ctx, farmID, user.PhoneNumber, msg); err != nil {
+					slog.Error("sms alert enqueue failed",
+						slog.String("farm_id", farmID), slog.String("error", err.Error()))
+				}
 			}
 		}
 	}

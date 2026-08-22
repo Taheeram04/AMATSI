@@ -42,6 +42,7 @@ type AppConfig struct {
 	AfricaTalkingUsername    string
 	AfricaTalkingSenderID    string
 	AfricaTalkingCallbackURL string
+	AfricaTalkingSandbox     bool
 
 	// Redis / Upstash
 	RedisURL string
@@ -77,6 +78,17 @@ func Load() (*AppConfig, error) {
 		AfricaTalkingUsername: os.Getenv("AFRICA_TALKING_USERNAME"),
 		RedisURL:              os.Getenv("REDIS_URL"),
 		AIServiceURL:          os.Getenv("AI_SERVICE_URL"),
+	}
+
+	// Africa's Talking sandbox mode: explicit AFRICA_TALKING_SANDBOX override,
+	// otherwise inferred from the username ("sandbox" => sandbox endpoint).
+	switch v := os.Getenv("AFRICA_TALKING_SANDBOX"); v {
+	case "true", "1", "TRUE", "True":
+		cfg.AfricaTalkingSandbox = true
+	case "false", "0", "FALSE", "False":
+		cfg.AfricaTalkingSandbox = false
+	default:
+		cfg.AfricaTalkingSandbox = strings.EqualFold(cfg.AfricaTalkingUsername, "sandbox")
 	}
 
 	// Parse allowed origins (comma-separated)

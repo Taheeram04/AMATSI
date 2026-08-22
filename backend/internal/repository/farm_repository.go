@@ -102,6 +102,9 @@ func (r *FarmRepository) GetFarmsByFarmer(ctx context.Context, userID string) ([
 		}
 		farms = append(farms, farm)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return farms, nil
 }
 
@@ -109,7 +112,7 @@ func (r *FarmRepository) UpdateFarm(ctx context.Context, farm *models.Farm) erro
 	query := `
 		UPDATE farms
 		SET name = $1, device_id = NULLIF($2, ''), latitude = $3, longitude = $4, area_hectares = $5, crop_type = $6, soil_type = $7, irrigation_method = $8, tank_capacity_liters = $9, planting_date = $10, updated_at = timezone('utc'::text, now())
-		WHERE id = $11
+		WHERE id = $11 AND user_id = $12
 		RETURNING updated_at
 	`
 	err := r.db.QueryRow(ctx, query,
@@ -124,6 +127,7 @@ func (r *FarmRepository) UpdateFarm(ctx context.Context, farm *models.Farm) erro
 		farm.TankCapacityLiters,
 		farm.PlantingDate,
 		farm.ID,
+		farm.UserID,
 	).Scan(&farm.UpdatedAt)
 	return err
 }

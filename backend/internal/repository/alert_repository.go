@@ -68,5 +68,8 @@ func (r *AlertRepository) GetSMSLogs(ctx context.Context, farmID string) ([]*mod
 		}
 		alerts = append(alerts, alert)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return alerts, nil
 }

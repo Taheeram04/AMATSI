@@ -1,129 +1,169 @@
 'use client';
 
-import { Droplet, RefreshCw, AlertCircle, CloudRain, BarChart3 } from 'lucide-react';
+/*
+ * app/dashboard/alerts/page.tsx — SMS ALERTS
+ * Real alert history per farm from the backend, plus manual SMS dispatch.
+ */
 
-export default function FieldOverviewPage() {
+import { useCallback, useEffect, useState } from 'react';
+import { BellRing, Send } from 'lucide-react';
+import { alertAPI, farmAPI } from '@/lib/api/client';
+import type { ApiFarm } from '@/types';
+import { mockAlerts } from '@/lib/mock/data';
+
+type AlertRow = { id: string; message: string; timestamp: string; status: 'delivered' | 'pending' | 'failed' };
+
+const STATUS_STYLES: Record<AlertRow['status'], { badge: string; label: string }> = {
+  delivered: { badge: 'bg-emerald-100 text-emerald-700', label: 'Delivered' },
+  pending: { badge: 'bg-amber-100 text-amber-700', label: 'Pending' },
+  failed: { badge: 'bg-rose-100 text-rose-600', label: 'Failed' },
+};
+
+export default function AlertsPage() {
+  const [farms, setFarms] = useState<ApiFarm[]>([]);
+  const [farmId, setFarmId] = useState<string>('');
+  const [alerts, setAlerts] = useState<AlertRow[] | null>(null);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await farmAPI.getFarms();
+        setFarms(list);
+        if (list.length > 0) setFarmId(list[0].id);
+      } catch {
+        setError('Failed to load farms');
+      }
+    })();
+  }, []);
+
+  const loadHistory = useCallback(async (id: string) => {
+    if (!id) return;
+    try {
+      setAlerts(await alertAPI.getHistory(id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load alerts');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory(farmId);
+  }, [farmId, loadHistory]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!farmId || !message.trim()) return;
+    setSending(true);
+    setError(null);
+    try {
+      await alertAPI.send({ farm_id: farmId, message: message.trim() });
+      setMessage('');
+      setNotice('Alert queued for delivery.');
+      await loadHistory(farmId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send alert');
+    } finally {
+      setSending(false);
+      setTimeout(() => setNotice(null), 4000);
+    }
+  };
+
+  const shownAlerts: AlertRow[] =
+    alerts ??
+    mockAlerts().map((a) => ({
+      id: a.id,
+      message: a.message,
+      timestamp: a.timestamp,
+      status: a.status,
+    }));
+
   return (
-    <div className="space-y-6 bg-brand-bg min-h-screen p-8 text-stone-900">
+    <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-bold text-stone-900">Field Overview</h1>
-        <p className="text-xs text-stone-500 mt-1">Monitor and manage your vital resources.</p>
+        <h1 className="font-serif text-2xl font-bold text-stone-900">SMS Alerts</h1>
+        <p className="mt-1 text-stone-500 text-sm">
+          Delivery log and manual dispatch for your farms.
+        </p>
       </div>
 
-      {/* Main Grid Section */}
-      <div className="grid grid-cols-12 gap-6">
-        
-        {/* Main Reservoir (8 cols) */}
-        <div className="col-span-8 bg-brand-card p-6 rounded-2xl border border-stone-200/60 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <Droplet className="w-4 h-4 text-emerald-800" />
-                <h2 className="font-serif text-xl font-bold text-stone-900">Main Reservoir</h2>
-              </div>
-              <p className="text-xs text-stone-500 mt-0.5">Central Water Storage</p>
-            </div>
-            <span className="bg-emerald-100 text-emerald-800 text-[11px] font-medium px-3 py-1 rounded-full flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 animate-spin" />
-              Filling
-            </span>
-          </div>
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
+      )}
+      {notice && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>
+      )}
 
-          <div className="mt-8 flex items-end justify-between">
-            {/* Reservoir Fill Graphic */}
-            <div className="w-1/2 h-24 bg-stone-200/60 rounded-xl relative overflow-hidden">
-              <div className="absolute bottom-0 w-full h-[82%] bg-emerald-200 border-t-2 border-emerald-400"></div>
-            </div>
-
-            {/* Metrics */}
-            <div className="text-right space-y-1">
-              <div className="font-serif text-4xl font-bold">82%</div>
-              <p className="text-xs text-stone-500 font-mono">41,000 / 50,000 L</p>
-              <div className="pt-2 text-xs text-stone-600 space-y-0.5">
-                <div className="flex justify-between gap-6"><span>Inflow Rate</span><span className="font-mono font-semibold">120 L/min</span></div>
-                <div className="flex justify-between gap-6"><span>Est. Full</span><span className="font-mono font-semibold">1h 15m</span></div>
-              </div>
-            </div>
-          </div>
+      <form onSubmit={handleSend} className="rounded-2xl border border-stone-200/60 bg-brand-card p-6 space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-stone-700">Farm</span>
+            <select
+              value={farmId}
+              onChange={(e) => setFarmId(e.target.value)}
+              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+              required
+            >
+              {farms.length === 0 && <option value="">No farms available</option>}
+              {farms.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-xs font-semibold text-stone-700">Message</span>
+            <input
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="e.g. Irrigate North Field tonight at 6pm"
+              maxLength={320}
+              required
+              disabled={farms.length === 0}
+              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+            />
+          </label>
         </div>
+        <button
+          type="submit"
+          disabled={sending || farms.length === 0}
+          className="flex items-center gap-2 rounded-xl bg-brand-orange px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-orange-500 disabled:opacity-50"
+        >
+          <Send className="h-3.5 w-3.5" />
+          {sending ? 'Queuing...' : 'Send SMS Alert'}
+        </button>
+      </form>
 
-        {/* Action Required Box (4 cols) */}
-        <div className="col-span-4 bg-brand-accent p-6 rounded-2xl text-white flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-emerald-300" />
-              <h2 className="font-serif text-xl font-bold">Action Required</h2>
-            </div>
-            <p className="text-xs text-emerald-100/90 leading-relaxed">
-              Soil moisture in Field A has dropped below the critical threshold. Immediate irrigation is recommended to prevent yield loss.
-            </p>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <div className="bg-emerald-900/60 p-3 rounded-xl border border-emerald-700/50">
-              <span className="text-[11px] text-emerald-200 uppercase font-mono tracking-wider">Target Volume</span>
-              <div className="font-serif text-2xl font-bold">1,200 L</div>
-            </div>
-            <button className="w-full bg-brand-orange hover:bg-orange-600 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors">
-              <Droplet className="w-4 h-4 fill-current" />
-              Irrigate Now
-            </button>
-          </div>
+      <div className="rounded-2xl border border-stone-200/60 bg-brand-card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <BellRing className="h-4 w-4 text-emerald-800" />
+          <h2 className="font-serif text-base font-bold text-stone-900">Delivery History</h2>
         </div>
-
-      </div>
-
-      {/* Secondary Cards Grid */}
-      <div className="grid grid-cols-12 gap-6">
-        
-        {/* Soil Moisture (5 cols) */}
-        <div className="col-span-5 bg-brand-card p-6 rounded-2xl border border-stone-200/60">
-          <h3 className="font-serif text-base font-bold text-stone-900 mb-4">Soil Moisture</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-rose-50 border border-rose-200/60 rounded-xl text-center">
-              <span className="text-xs text-stone-500">Field A</span>
-              <div className="font-serif text-2xl font-bold text-stone-900 my-1">45%</div>
-              <span className="text-[10px] font-bold text-rose-600 uppercase bg-rose-100 px-2 py-0.5 rounded">Low</span>
-            </div>
-            <div className="p-4 bg-emerald-50 border border-emerald-200/60 rounded-xl text-center">
-              <span className="text-xs text-stone-500">Field B</span>
-              <div className="font-serif text-2xl font-bold text-stone-900 my-1">62%</div>
-              <span className="text-[10px] font-bold text-emerald-700 uppercase bg-emerald-100 px-2 py-0.5 rounded">Optimal</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Microclimate (3 cols) */}
-        <div className="col-span-3 bg-brand-card p-6 rounded-2xl border border-stone-200/60 flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-semibold text-stone-700">Microclimate (24h)</span>
-            <CloudRain className="w-4 h-4 text-stone-500" />
-          </div>
-          <div className="space-y-2 text-xs mt-4">
-            <div className="flex justify-between text-stone-600"><span>Rain Prob.</span><span className="font-bold text-stone-900">20%</span></div>
-            <div className="flex justify-between text-stone-600"><span>Expected</span><span className="font-bold text-stone-900">5mm</span></div>
-          </div>
-        </div>
-
-        {/* Usage (4 cols) */}
-        <div className="col-span-4 bg-brand-card p-6 rounded-2xl border border-stone-200/60 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-stone-700">Usage (7d)</span>
-            <BarChart3 className="w-4 h-4 text-stone-500" />
-          </div>
-          {/* Mock Bar Chart */}
-          <div className="flex items-end justify-between gap-2 h-20 pt-4">
-            {[40, 60, 30, 80, 50, 95, 25].map((height, i) => (
-              <div key={i} className="flex-1 bg-stone-200/80 rounded-t-sm h-full flex items-end">
-                <div
-                  className={`w-full rounded-t-sm ${i === 5 ? 'bg-brand-orange' : i === 3 ? 'bg-emerald-950' : 'bg-emerald-300'}`}
-                  style={{ height: `${height}%` }}
-                ></div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+        {!farmId && farms.length === 0 ? (
+          <p className="text-sm text-stone-500">Create a farm first to start sending alerts.</p>
+        ) : shownAlerts.length === 0 ? (
+          <p className="text-sm text-stone-500">No alerts sent yet.</p>
+        ) : (
+          <ul className="divide-y divide-stone-100">
+            {shownAlerts.map((a) => {
+              const style = STATUS_STYLES[a.status];
+              return (
+                <li key={a.id} className="flex items-start justify-between gap-4 py-3">
+                  <div>
+                    <p className="text-sm text-stone-800">{a.message}</p>
+                    <p className="mt-0.5 text-[11px] font-mono text-stone-400">
+                      {new Date(a.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                  <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${style.badge}`}>
+                    {style.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

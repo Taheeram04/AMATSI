@@ -55,18 +55,18 @@ export interface Recommendation {
 	farmId: string;
 	action: RecommendationAction;
 	reason: string;
-	volumeL: number;
-	waterSavedL: number;
-	confidence: ConfidenceLevel;
+	volumeL?: number;
+	waterSavedL?: number;
+	confidence?: ConfidenceLevel;
 	createdAt: string;
-	read: boolean;
+	read?: boolean;
 }
 
 export interface WeatherData {
 	temperatureC: number;
 	rainProbability: number;
-	expectedRainfallMm: number;
-	humidity: number;
+	expectedRainfallMm?: number;
+	humidity?: number;
 	fetchedAt: string;
 	source: "KijaniBox";
 }
@@ -115,4 +115,61 @@ export interface Notification {
 	message: string;
 	read: boolean;
 	createdAt: string;
+}
+
+/*
+ * BACKEND API TYPES — mirror backend/internal/models/* JSON tags exactly.
+ */
+export interface ApiUser {
+	id: string;
+	full_name: string;
+	phone_number: string;
+	email?: string;
+	language?: string;
+	sms_enabled?: boolean;
+	is_premium?: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ApiFarm {
+	id: string;
+	user_id: string;
+	name: string;
+	device_id: string | null;
+	latitude: number;
+	longitude: number;
+	area_hectares: number;
+	crop_type: string;
+	soil_type: string;
+	irrigation_method: string;
+	tank_capacity_liters: number;
+	planting_date: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ApiRecommendation {
+	id: string;
+	farm_id: string;
+	action: RecommendationAction | string;
+	reason: string;
+	water_saved_estimate: number;
+	created_at: string;
+}
+
+export type ApiAlertStatus = "PENDING" | "SENT" | "FAILED";
+
+export interface ApiAlert {
+	id: string;
+	farm_id: string;
+	message: string;
+	status: ApiAlertStatus;
+	sent_at: string | null;
+	created_at: string;
+}
+
+export interface ApiEnvelope<T> {
+	data: T;
+	from_cache?: boolean;
 }

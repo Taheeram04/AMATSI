@@ -55,17 +55,23 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
 			<div className="mt-6 grid grid-cols-2 gap-3">
 				<div className="bg-emerald-900/60 border border-emerald-700/50 rounded-xl p-3">
 					<p className="text-[11px] text-emerald-200 uppercase font-mono tracking-wider">Target Volume</p>
-					<p className="text-2xl font-bold font-serif">{recommendation.volumeL.toLocaleString()} L</p>
+					<p className="text-2xl font-bold font-serif">
+						{recommendation.volumeL != null ? `${recommendation.volumeL.toLocaleString()} L` : "—"}
+					</p>
 				</div>
 				<div className="bg-emerald-900/60 border border-emerald-700/50 rounded-xl p-3">
 					<p className="text-[11px] text-emerald-200 uppercase font-mono tracking-wider">Water Saved</p>
-					<p className="text-2xl font-bold font-serif">{formatLiters(recommendation.waterSavedL)}</p>
+					<p className="text-2xl font-bold font-serif">
+						{recommendation.waterSavedL != null ? formatLiters(recommendation.waterSavedL) : "—"}
+					</p>
 				</div>
 			</div>
 
-			<p className="mt-3 text-xs font-mono text-emerald-200/70">
-				Confidence: {recommendation.confidence}
-			</p>
+			{recommendation.confidence && (
+				<p className="mt-3 text-xs font-mono text-emerald-200/70">
+					Confidence: {recommendation.confidence}
+				</p>
+			)}
 
 			<button
 				onClick={handleSend}

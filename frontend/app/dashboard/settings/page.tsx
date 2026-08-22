@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
+import { userAPI } from "@/lib/api/client";
 import { isValidPhone } from "@/lib/utils/validators";
 import type { Language, PhoneLabel, Theme } from "@/types";
 
@@ -65,11 +66,32 @@ export default function SettingsPage() {
 	// 8.13 — sync preference
 	const [autoSync, setAutoSync] = useState(true);
 
+	const [profileSaving, setProfileSaving] = useState(false);
+	const [profileError, setProfileError] = useState<string | null>(null);
+	const [passwordBusy, setPasswordBusy] = useState(false);
+
 	const handleSaveProfile = async (e: React.FormEvent) => {
 		e.preventDefault();
-		// TODO: swap for updateProfile(profile) from lib/api/client.ts
-		setProfileSaved(true);
-		setTimeout(() => setProfileSaved(false), 2500);
+		setProfileError(null);
+		setProfileSaving(true);
+		try {
+			await userAPI.updateProfile({
+				full_name: profile.name,
+				email: profile.email,
+				language: language,
+				sms_enabled: smsEnabled,
+			});
+			localStorage.setItem(
+				"auth_user",
+				JSON.stringify({ ...(user ?? {}), full_name: profile.name, email: profile.email })
+			);
+			setProfileSaved(true);
+			setTimeout(() => setProfileSaved(false), 2500);
+		} catch (err) {
+			setProfileError(err instanceof Error ? err.message : "Failed to save profile");
+		} finally {
+			setProfileSaving(false);
+		}
 	};
 
 	const handleChangePassword = async (e: React.FormEvent) => {
@@ -79,14 +101,24 @@ export default function SettingsPage() {
 			setPasswordError("Fill in both fields.");
 			return;
 		}
-		if (passwords.next.length < 6) {
-			setPasswordError("New password must be at least 6 characters.");
+		if (passwords.next.length < 8) {
+			setPasswordError("New password must be at least 8 characters.");
 			return;
 		}
-		// TODO: swap for changePassword(...) from lib/api/client.ts
-		setPasswords({ current: "", next: "" });
-		setPasswordSaved(true);
-		setTimeout(() => setPasswordSaved(false), 2500);
+		setPasswordBusy(true);
+		try {
+			await userAPI.changePassword({
+				current_password: passwords.current,
+				new_password: passwords.next,
+			});
+			setPasswords({ current: "", next: "" });
+			setPasswordSaved(true);
+			setTimeout(() => setPasswordSaved(false), 2500);
+		} catch (err) {
+			setPasswordError(err instanceof Error ? err.message : "Failed to change password");
+		} finally {
+			setPasswordBusy(false);
+		}
 	};
 
 	// 8.7 — add an additional recipient.
@@ -133,9 +165,10 @@ export default function SettingsPage() {
 							onChange={(e) => setProfile({ ...profile, email: e.target.value })}
 						/>
 					</div>
-					<Button type="submit" className="mt-4">
-						Save profile
+					<Button type="submit" className="mt-4" disabled={profileSaving}>
+						{profileSaving ? "Saving..." : "Save profile"}
 					</Button>
+					{profileError && <p className="mt-2 text-sm text-rose-600">{profileError}</p>}
 					{profileSaved && (
 						<p className="mt-2 text-sm text-emerald-700">Profile saved.</p>
 					)}
@@ -155,7 +188,7 @@ export default function SettingsPage() {
 						<Input
 							label="New password"
 							type="password"
-							hint="Minimum 6 characters."
+							hint="Minimum 8 characters."
 							autoComplete="new-password"
 							value={passwords.next}
 							onChange={(e) => setPasswords({ ...passwords, next: e.target.value })}
@@ -163,8 +196,8 @@ export default function SettingsPage() {
 					</div>
 					{passwordError && <p className="mt-2 text-sm text-rose-600">{passwordError}</p>}
 					{passwordSaved && <p className="mt-2 text-sm text-emerald-700">Password updated.</p>}
-					<Button type="submit" variant="outline" className="mt-4">
-						Update password
+					<Button type="submit" variant="outline" className="mt-4" disabled={passwordBusy}>
+						{passwordBusy ? "Updating..." : "Update password"}
 					</Button>
 				</form>
 

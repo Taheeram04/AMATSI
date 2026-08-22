@@ -39,11 +39,15 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather }) => {
 				</div>
 				<div className="flex justify-between text-sm">
 					<span className="text-stone-500">Expected</span>
-					<span className="font-semibold text-stone-900">{weather.expectedRainfallMm}mm</span>
+					<span className="font-semibold text-stone-900">
+						{weather.expectedRainfallMm != null ? `${weather.expectedRainfallMm}mm` : "—"}
+					</span>
 				</div>
 				<div className="flex justify-between text-sm">
 					<span className="text-stone-500">Humidity</span>
-					<span className="font-semibold text-stone-900">{weather.humidity}%</span>
+					<span className="font-semibold text-stone-900">
+						{weather.humidity != null ? `${weather.humidity}%` : "—"}
+					</span>
 				</div>
 			</div>
 

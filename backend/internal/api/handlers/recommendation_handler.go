@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -88,7 +90,13 @@ func GenerateRecommendationHandler(c *gin.Context) {
 
 	rec, err := svc.GenerateRecommendation(c.Request.Context(), input.FarmID)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "recommendation upstream unavailable"})
+		if errors.Is(err, services.ErrUpstream) {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "recommendation upstream unavailable"})
+		} else {
+			slog.Error("failed to persist recommendation",
+				slog.String("farm_id", input.FarmID), slog.String("error", err.Error()))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save recommendation"})
+		}
 		return
 	}
 	c.JSON(http.StatusOK, rec)

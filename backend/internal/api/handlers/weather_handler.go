@@ -25,6 +25,14 @@ func GetWeatherHandler(c *gin.Context) {
 		return
 	}
 
+	db := c.MustGet("db_pool").(*pgxpool.Pool)
+	farmRepo := repository.NewFarmRepository(db)
+	farm, err := farmRepo.GetFarmByID(c.Request.Context(), farmID)
+	if err != nil || farm.UserID != userID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "farm not found"})
+		return
+	}
+
 	rdb := c.MustGet("redis_client").(*redis.Client)
 	cacheKey := fmt.Sprintf("weather:%s", farmID)
 	if cached, err := rdb.Get(c.Request.Context(), cacheKey).Bytes(); err == nil {
@@ -33,14 +41,6 @@ func GetWeatherHandler(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"data": data, "from_cache": true})
 			return
 		}
-	}
-
-	db := c.MustGet("db_pool").(*pgxpool.Pool)
-	farmRepo := repository.NewFarmRepository(db)
-	farm, err := farmRepo.GetFarmByID(c.Request.Context(), farmID)
-	if err != nil || farm.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "farm not found"})
-		return
 	}
 
 	kijani := clients.NewKijaniboxClient(
@@ -81,6 +81,14 @@ func GetSoilMoistureHandler(c *gin.Context) {
 		return
 	}
 
+	db := c.MustGet("db_pool").(*pgxpool.Pool)
+	farmRepo := repository.NewFarmRepository(db)
+	farm, err := farmRepo.GetFarmByID(c.Request.Context(), farmID)
+	if err != nil || farm.UserID != userID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "farm not found"})
+		return
+	}
+
 	rdb := c.MustGet("redis_client").(*redis.Client)
 	cacheKey := fmt.Sprintf("soil:%s", farmID)
 	if cached, err := rdb.Get(c.Request.Context(), cacheKey).Bytes(); err == nil {
@@ -89,14 +97,6 @@ func GetSoilMoistureHandler(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"data": data, "from_cache": true})
 			return
 		}
-	}
-
-	db := c.MustGet("db_pool").(*pgxpool.Pool)
-	farmRepo := repository.NewFarmRepository(db)
-	farm, err := farmRepo.GetFarmByID(c.Request.Context(), farmID)
-	if err != nil || farm.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "farm not found"})
-		return
 	}
 
 	kijani := clients.NewKijaniboxClient(

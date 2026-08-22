@@ -77,8 +77,20 @@ func main() {
 	var asynqServer *asynq.Server
 	asynqServer, err = queue.NewAsynqServer(cfg.RedisURL)
 	if err != nil {
-		slog.Warn("Failed to create Asynq server — SMS worker will not run",
+		slog.Warn("Failed to create Asynq server — retrying in background",
 			slog.String("error", err.Error()))
+		go func() {
+			for {
+				time.Sleep(30 * time.Second)
+				srv, retryErr := queue.NewAsynqServer(cfg.RedisURL)
+				if retryErr == nil {
+					slog.Info("Asynq server initialized after retry")
+					startAsynqWorker(srv, cfg, dbPool)
+					return
+				}
+				slog.Warn("Asynq server retry failed", slog.String("error", retryErr.Error()))
+			}
+		}()
 	} else {
 		slog.Info("Asynq server initialized")
 	}
@@ -115,19 +127,7 @@ func main() {
 
 	routes.RegisterRoutes(router, cfg, redisClient)
 
-	if asynqServer != nil {
-		atClient := clients.NewAfricasTalkingClient(cfg.AfricaTalkingUsername, cfg.AfricaTalkingAPIKey, true)
-		smsProcessor := workers.NewSMSProcessor(atClient, repository.NewAlertRepository(dbPool))
-		mux := asynq.NewServeMux()
-		mux.HandleFunc(queue.TypeSendSMS, smsProcessor.ProcessTask)
-
-		go func() {
-			slog.Info("Asynq worker starting")
-			if err := asynqServer.Start(mux); err != nil {
-				slog.Error("Asynq worker failed to start", slog.String("error", err.Error()))
-			}
-		}()
-	}
+	startAsynqWorker(asynqServer, cfg, dbPool)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -137,18 +137,22 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	serverErr := make(chan error, 1)
 	go func() {
 		slog.Info("Server starting", slog.String("addr", srv.Addr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Server failed", slog.String("error", err.Error()))
-			os.Exit(1)
+			serverErr <- err
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-quit
-	slog.Info("Shutdown signal received", slog.String("signal", sig.String()))
+	select {
+	case sig := <-quit:
+		slog.Info("Shutdown signal received", slog.String("signal", sig.String()))
+	case err := <-serverErr:
+		slog.Error("Server failed — initiating shutdown", slog.String("error", err.Error()))
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -157,9 +161,38 @@ func main() {
 		slog.Error("Server shutdown error", slog.String("error", err.Error()))
 	}
 	if asynqServer != nil {
-		asynqServer.Shutdown()
+		asynqDone := make(chan struct{})
+		go func() {
+			asynqServer.Shutdown()
+			close(asynqDone)
+		}()
+		select {
+		case <-asynqDone:
+		case <-time.After(15 * time.Second):
+			slog.Warn("Asynq shutdown timed out; continuing")
+		}
+	}
+	if mqttClient != nil {
+		mqttClient.Disconnect()
 	}
 	slog.Info("Server shutdown complete")
+}
+
+func startAsynqWorker(asynqServer *asynq.Server, cfg *config.AppConfig, dbPool *pgxpool.Pool) {
+	if asynqServer == nil {
+		return
+	}
+	atClient := clients.NewAfricasTalkingClient(cfg.AfricaTalkingUsername, cfg.AfricaTalkingAPIKey, cfg.AfricaTalkingSandbox)
+	smsProcessor := workers.NewSMSProcessor(atClient, repository.NewAlertRepository(dbPool))
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(queue.TypeSendSMS, smsProcessor.ProcessTask)
+
+	go func() {
+		slog.Info("Asynq worker starting")
+		if err := asynqServer.Start(mux); err != nil {
+			slog.Error("Asynq worker failed to start", slog.String("error", err.Error()))
+		}
+	}()
 }
 
 func injectDeps(

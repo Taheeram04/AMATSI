@@ -21,8 +21,14 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       await signup({ fullName, phoneNumber, password, email });

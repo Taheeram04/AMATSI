@@ -7,6 +7,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kijanifarmer/backend/internal/api/middleware"
+	"github.com/kijanifarmer/backend/internal/models"
 	"github.com/kijanifarmer/backend/internal/repository"
 	"github.com/kijanifarmer/backend/internal/services"
 )
@@ -38,7 +39,7 @@ func SendAlertHandler(c *gin.Context) {
 	userRepo := repository.NewUserRepository(db)
 	user, err := userRepo.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "user lookup failed"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 		return
 	}
 	if !user.SMSEnabled {
@@ -87,6 +88,9 @@ func GetAlertHistoryHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if alerts == nil {
+		alerts = []*models.Alert{}
 	}
 	c.JSON(http.StatusOK, alerts)
 }
