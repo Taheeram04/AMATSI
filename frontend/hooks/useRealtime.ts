@@ -11,7 +11,10 @@ export function useRealtime<T>(
   handlerRef.current = onPayload;
 
   useEffect(() => {
-    const channel = supabase
+    if (!supabase) return;
+    const client = supabase;
+
+    const channel = client
       .channel(`realtime:${table}`)
       .on(
         'postgres_changes',
@@ -25,7 +28,7 @@ export function useRealtime<T>(
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [table]);
 }
