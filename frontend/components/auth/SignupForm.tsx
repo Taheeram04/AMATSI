@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Eye, EyeOff, Leaf } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { Mail, Phone, Lock, User, Eye, EyeOff, Leaf } from 'lucide-react';
+import { signup } from '@/lib/api/auth';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -12,6 +12,7 @@ interface SignupFormProps {
 export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,27 +24,14 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     setLoading(true);
     setError(null);
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      localStorage.setItem('supabase_token', data.session.access_token);
+    try {
+      await signup({ fullName, phoneNumber, password, email });
       router.push('/dashboard');
-    } else {
-      onSwitchToLogin();
+    } catch (err: any) {
+      console.error('Signup error:', err);
+      setError(err.message || 'Failed to create account. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,7 +76,24 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
         <div>
           <label className="block text-xs font-semibold text-stone-200 mb-1.5">
-            Email Address
+            Phone Number
+          </label>
+          <div className="relative flex items-center">
+            <Phone className="absolute left-3.5 w-4 h-4 text-stone-400" />
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+254712345678"
+              required
+              className="w-full bg-stone-900/50 border border-stone-600/60 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-400 outline-none backdrop-blur-md transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-stone-200 mb-1.5">
+            Email Address <span className="text-stone-400 font-normal">(optional)</span>
           </label>
           <div className="relative flex items-center">
             <Mail className="absolute left-3.5 w-4 h-4 text-stone-400" />
@@ -97,7 +102,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="farmer.joe@coop.com"
-              required
               className="w-full bg-stone-900/50 border border-stone-600/60 focus:border-emerald-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-400 outline-none backdrop-blur-md transition-all"
             />
           </div>

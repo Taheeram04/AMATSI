@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Leaf } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { Phone, Lock, Eye, EyeOff, Leaf } from 'lucide-react';
+import { login } from '@/lib/api/auth';
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
 }
 
 export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
-  const [email, setEmail] = useState('farmer.joe@coop.com');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -22,21 +22,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
-      // 1. Authenticate with Supabase
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) throw authError;
-
-      if (data.session) {
-        // 2. Persist access token locally if needed
-        localStorage.setItem('supabase_token', data.session.access_token);
-
-        // 3. Navigate to main dashboard
-        window.location.href = '/dashboard';
-      }
+      await login(phone, password);
+      window.location.href = '/dashboard';
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to authenticate. Please check your credentials.');
@@ -71,18 +58,18 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
       {/* Form Fields */}
       <form onSubmit={handleLogin} className="w-full space-y-3.5 text-left">
-        {/* Email Field */}
+        {/* Phone Field */}
         <div>
           <label className="block text-[11px] font-medium text-stone-200 mb-1">
-            Email or Username
+            Phone Number
           </label>
           <div className="relative flex items-center">
-            <Mail className="absolute left-3.5 w-4 h-4 text-stone-300 pointer-events-none z-10" />
+            <Phone className="absolute left-3.5 w-4 h-4 text-stone-300 pointer-events-none z-10" />
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="farmer.joe@coop.com"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+254712345678"
               required
               className="w-full bg-[#2a241e]/40 border border-[#524337]/60 focus:border-[#f59e0b] rounded-lg py-2.5 pl-10 pr-4 text-xs text-white outline-none backdrop-blur-sm transition-all"
             />

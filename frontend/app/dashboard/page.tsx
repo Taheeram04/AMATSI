@@ -54,10 +54,7 @@ export default function DashboardPage() {
 		return <p className="text-rose-600">Please login to view dashboard</p>;
 	}
 
-	const farmerName =
-		(user.user_metadata?.full_name as string | undefined) ??
-		(user.user_metadata?.name as string | undefined) ??
-		"Farmer";
+	const farmerName = user.full_name?.trim() || "Farmer";
 
 	const recommendation = mockRecommendation();
 	const weather = mockWeather();
